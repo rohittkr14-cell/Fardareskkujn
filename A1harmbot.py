@@ -4,7 +4,7 @@ from telegram.ext import (
     MessageHandler, ContextTypes, filters
 )
 
-TOKEN = "8465045827:AAGB-7KLce05TY2Xb5ToTdU7oBTsd2vzPmY"
+TOKEN = "adu ki mkc"
 
 # 🔑 2 ADMINS
 ADMIN_IDS = [7659864091, 6587658540]   # second admin id yahan daal do
