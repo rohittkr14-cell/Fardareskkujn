@@ -4,13 +4,13 @@ from telegram.ext import (
     MessageHandler, ContextTypes, filters
 )
 
-TOKEN = "adu ki mkc"
+TOKEN = "8465045827:AAGB-7KLce05TY2Xb5ToTdU7oBTsd2vzPmY"
 
 # 🔑 2 ADMINS
-ADMIN_IDS = [7659864091, 6587658540]   # second admin id yahan daal do
+ADMIN_IDS = [7691071175, 6587658540]   # second admin id yahan daal do
 
 CHANNEL_ID = -1003344628533
-GC_IDS = [-1003692774580, -1003382668169]
+GC_IDS = [ -1003730637965 ]
 
 STATE = {}
 
