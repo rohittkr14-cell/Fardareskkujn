@@ -10,7 +10,7 @@ from telegram.constants import ParseMode
 import html
 
 # ================= CONFIG =================
-TOKEN = "8465045827:AAGB-7KLce05TY2Xb5ToTdU7oBTsd2vzPmY"
+TOKEN = "8743013698:AAHbatOmi4eRNShDcBBZIPa4VwskGZPTz4s"
 
 ADMIN_IDS = [7691071175, 6587658540]
 
