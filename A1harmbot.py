@@ -620,7 +620,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(admin_action, pattern="^(approve|reject)_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, user_input))
     app.add_handler(ChatMemberHandler(auto_ban_blacklisted, ChatMemberHandler.CHAT_MEMBER))
