@@ -11,6 +11,7 @@ from telegram.error import TelegramError, BadRequest, Forbidden
 import html
 import json
 import os
+import re
 
 # ================= CONFIG =================
 TOKEN = "8743013698:AAHbatOmi4eRNShDcBBZIPa4VwskGZPTz4s"
@@ -64,6 +65,20 @@ def reset(uid):
 
 def esc(text):
     return html.escape(str(text))
+
+def clean_username(text):
+    text = (text or "").strip()
+    if text.startswith("@"):
+        text = text[1:]
+    return text
+
+def valid_username(text):
+    text = clean_username(text)
+    return bool(re.fullmatch(r"[A-Za-z0-9_]{5,32}", text))
+
+def username_url(text):
+    text = clean_username(text)
+    return f"https://t.me/{text}"
 
 def main_menu_keyboard():
     return ReplyKeyboardMarkup(
@@ -163,21 +178,12 @@ async def send_admin(uid, context):
 
 # ================= SAFE GROUP ACTION =================
 async def safe_group_ban_and_notify(context, target_id: int, reason_text: str):
-    """
-    IMPORTANT:
-    Telegram may fail to ban unknown/non-participant IDs with Participant_id_invalid.
-    But we still:
-    1) keep blacklist saved
-    2) notify group
-    3) never break channel post / approval flow
-    """
     results = []
 
     for gc in GC_IDS:
         ban_ok = False
         ban_error = None
 
-        # ---- Try ban, but NEVER let this break flow ----
         try:
             await context.bot.ban_chat_member(
                 chat_id=gc,
@@ -198,7 +204,7 @@ async def safe_group_ban_and_notify(context, target_id: int, reason_text: str):
             ban_error = str(e)
             print(f"Unknown ban error in {gc}: {e}")
 
-        # ---- ALWAYS notify GC ----
+        # GC MSG ALWAYS JAYEGA
         try:
             gc_text = (
                 "<b>🚫 USER BANNED</b>\n\n"
@@ -321,42 +327,57 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # -------- CHANNEL POST (ALWAYS RUN) --------
         if d["type"] == "SCM":
             caption = (
-                "<b>🚨 SCAMMER FLAGGED</b>\n\n"
-                f"<b>❌ Username:</b> {esc(d['scm_username'])}\n"
-                f"<b>🆔 Telegram ID:</b> <code>{esc(d['scm_id'])}</code>\n"
-                f"<b>💰 Amount:</b> <code>{esc(d['amount'])}</code>\n\n"
+                "<b>❌ {}</b> <b>(Telegram ID: <code>{}</code>) Flagged</b>\n\n"
                 "<b>⚠️ Stay Alert & Avoid Deals Without Verification</b>"
+            ).format(
+                esc(d["scm_username"]),
+                esc(d["scm_id"])
             )
 
-            kb = [[
-                InlineKeyboardButton(
-                    "View Profile",
-                    url=f"tg://user?id={d['scm_id']}"
-                ),
+            kb = []
+            if valid_username(d.get("scm_username", "")):
+                kb.append(
+                    InlineKeyboardButton(
+                        "View Profile",
+                        url=username_url(d["scm_username"])
+                    )
+                )
+            kb.append(
                 InlineKeyboardButton(
                     "View Proof",
                     url=d["proof"]
                 )
-            ]]
+            )
+            reply_markup = InlineKeyboardMarkup([kb])
 
         else:
             caption = (
-                "<b>🚨 IMPERSONATOR FLAGGED</b>\n\n"
-                f"<b>❌ Fake:</b> {esc(d['fake_username'])} (<code>{esc(d['fake_id'])}</code>)\n"
-                f"<b>✅ Real:</b> {esc(d['real_username'])} (<code>{esc(d['real_id'])}</code>)\n\n"
-                "<b>⚠️ Stay Safe From Fake Accounts</b>"
+                "<b>❌ {}</b> <b>(Telegram ID: <code>{}</code>) Flagged</b>\n\n"
+                "<b>⚠️ Stay Safe From Fake Accounts</b>\n\n"
+                f"<b>Real User:</b> {esc(d['real_username'])} "
+                f"(<code>{esc(d['real_id'])}</code>)"
+            ).format(
+                esc(d["fake_username"]),
+                esc(d["fake_id"])
             )
 
-            kb = [[
-                InlineKeyboardButton(
-                    "View Real Profile",
-                    url=f"tg://user?id={d['real_id']}"
-                ),
-                InlineKeyboardButton(
-                    "View Fake Profile",
-                    url=f"tg://user?id={d['fake_id']}"
+            row = []
+            if valid_username(d.get("fake_username", "")):
+                row.append(
+                    InlineKeyboardButton(
+                        "View Profile",
+                        url=username_url(d["fake_username"])
+                    )
                 )
-            ]]
+            if valid_username(d.get("real_username", "")):
+                row.append(
+                    InlineKeyboardButton(
+                        "Real Profile",
+                        url=username_url(d["real_username"])
+                    )
+                )
+
+            reply_markup = InlineKeyboardMarkup([row]) if row else None
 
         try:
             with open("pfp.jpg", "rb") as photo:
@@ -365,9 +386,9 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     photo=photo,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
-                    reply_markup=InlineKeyboardMarkup(kb)
+                    reply_markup=reply_markup
                 )
-                print("Channel photo post sent successfully.")
+                print("✅ Channel photo post sent successfully.")
         except Exception as e:
             print(f"Photo send error: {e}")
             try:
@@ -375,14 +396,14 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=CHANNEL_ID,
                     text=caption,
                     parse_mode=ParseMode.HTML,
-                    reply_markup=InlineKeyboardMarkup(kb)
+                    reply_markup=reply_markup,
+                    disable_web_page_preview=True
                 )
-                print("Channel text post sent successfully.")
+                print("✅ Channel text post sent successfully.")
             except Exception as e2:
                 print(f"Channel text send error: {e2}")
 
         # -------- ADMIN RESULT --------
-        # Ban API success count alag hai, blacklist save real status hai
         api_success_count = sum(1 for _, ok, _ in ban_results if ok)
 
         result_text = (
@@ -599,7 +620,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
+    app.app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(admin_action, pattern="^(approve|reject)_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, user_input))
     app.add_handler(ChatMemberHandler(auto_ban_blacklisted, ChatMemberHandler.CHAT_MEMBER))
